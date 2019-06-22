@@ -59,13 +59,14 @@ rm -rf "=18.0"
 echo "***********************************pip installing! If this fails, remove the version constraint in the requirements.txt for which pip failed***********************************"
 echo "***********************************most distros have a shitty old version of python OpenSSL, removing it if it exists... (don't worry, we'll reinstall a recent version)***********************************"
 sudo rm -rvf /usr/local/lib/python2.7/dist-packages/OpenSSL/
-sudo pip install -r requirements.txt
+
+sudo pip install -r ~/op-dev/openpilot_tools/requirements.txt
+cd ~/op-dev/
 sed -i 's/cryptography==1.4/cryptography/g' requirements_openpilot.txt
 sed -i 's/pyOpenSSL==16.0.0/pyOpenSSL/g' requirements_openpilot.txt
 sed -i 's/pyopencl==2016.1/pyopencl/g' requirements_openpilot.txt
 sed -i 's/pytools==2016.2.1/pytools/g' requirements_openpilot.txt
 sed -i 's/simplejson==3.8.2/simplejson/g' requirements_openpilot.txt
-sed -i '1s/^/mako /' requirements_openpilot.txt 
 sudo pip install -r requirements_openpilot.txt
 unset PYTHONPATH
 export PYTHONPATH=~/op-dev/
