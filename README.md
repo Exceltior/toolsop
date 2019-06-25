@@ -203,7 +203,9 @@ Also, within openpilot there is a rudimentary infrastructure to run a basic simu
 
 ```bash
 # Requires working docker
-./run_docker_tests.sh
+./init
+cd replay
+python unlogger.py
 ```
 
 Contributing
