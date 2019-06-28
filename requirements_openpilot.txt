@@ -54,11 +54,11 @@ pytest==2.9.2
 python-dateutil==2.6.0
 pytools
 pytz==2016.10
-pyyaml==3.12
+pyyaml>=4.2b1
 pyzmq==15.4.0
 raven==5.23.0
 recordclass==0.4.1
-requests==2.10.0
+requests>=2.20.0
 scipy==0.19.1
 service-identity==16.0.0
 setproctitle==1.1.10
