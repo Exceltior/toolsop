@@ -1,9 +1,10 @@
-# This are the packages installed on the EON
--e git+https://github.com/commaai/le_python.git#egg=Logentries
--e git+https://github.com/commaai/python-overpy.git#egg=overpy
+mako 
+-e git+https://github.com/commaai/le_python.git@5eef8f5be5929d33973e1b10e686fa0cdcd6792f#egg=Logentries
+-e git+https://github.com/commaai/python-overpy.git@f86529af402d4642e1faeb146671c40284007323#egg=overpy
 Cython==0.27.3
 Flask==1.0.2
 #PyGObject==3.28.2 This is installed on the EON, but requires a ton of dependencies to install
+PyJWT==1.4.1
 PyYAML==3.12
 appdirs==1.4.0
 atomicwrites==1.1.5
@@ -15,7 +16,7 @@ cffi==1.11.5
 contextlib2==0.5.4
 crc16==0.1.1
 crcmod==1.7
-cryptography==1.4
+cryptography
 cycler==0.10.0
 decorator==4.0.10
 docopt==0.6.2
@@ -35,7 +36,7 @@ opencv-python==3.4.0.12
 pause==0.1.2
 psutil==3.4.2
 py==1.4.31
-pyOpenSSL==16.0.0
+pyOpenSSL
 pyasn1-modules==0.0.8
 pyasn1==0.1.9
 pycapnp==0.6.3
@@ -43,7 +44,7 @@ pycparser==2.18
 pycrypto==2.6.1
 pyflakes==1.6.0
 pylint==1.8.3
-pyopencl==2016.1
+pyopencl
 pyparsing==2.1.10
 #pypcap==1.1.5 needs extra dependencies and is not used
 pyproj==1.9.5.1
@@ -51,17 +52,17 @@ pypytools==0.4.3
 pyserial==3.1.1
 pytest==2.9.2
 python-dateutil==2.6.0
-pytools==2016.2.1
+pytools
 pytz==2016.10
-pyyaml==3.12
+pyyaml>=4.2b1
 pyzmq==15.4.0
 raven==5.23.0
 recordclass==0.4.1
-requests==2.10.0
+requests>=2.20.0
 scipy==0.19.1
 service-identity==16.0.0
 setproctitle==1.1.10
-simplejson==3.8.2
+simplejson
 six==1.10.0
 smbus-cffi==0.5.1
 smbus2==0.2.0
