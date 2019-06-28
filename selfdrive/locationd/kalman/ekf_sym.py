@@ -5,7 +5,8 @@ import numpy as np
 from numpy import dot
 from common.ffi_wrapper import compile_code, wrap_compiled
 from common.sympy_helpers import sympy_into_c
-from chi2_lookup import chi2_ppf
+import scipy
+from scipy.stats import chi2
 
 
 EXTERNAL_PATH = os.path.dirname(os.path.abspath(__file__))
@@ -18,11 +19,12 @@ def solve(a, b):
     return np.linalg.solve(a, b)
 
 def null(H, eps=1e-12):
-  u, s, vh = np.linalg.svd(H)
+  from scipy import linalg
+  u, s, vh = linalg.svd(H)
   padding = max(0,np.shape(H)[1]-np.shape(s)[0])
   null_mask = np.concatenate(((s <= eps), np.ones((padding,),dtype=bool)),axis=0)
-  null_space = np.compress(null_mask, vh, axis=0)
-  return np.transpose(null_space)
+  null_space = scipy.compress(null_mask, vh, axis=0)
+  return scipy.transpose(null_space)
 
 def gen_code(name, f_sym, dt_sym, x_sym, obs_eqs, dim_x, dim_err, eskf_params=None, msckf_params=None, maha_test_kinds=[]):
   # optional state transition matrix, H modifier
@@ -119,7 +121,7 @@ def gen_code(name, f_sym, dt_sym, x_sym, obs_eqs, dim_x, dim_err, eskf_params=No
     else:
       He_str = 'NULL'
       # ea_dim = 1 # not really dim of ea but makes c function work
-    maha_thresh = chi2_ppf(0.95, int(h_sym.shape[0])) # mahalanobis distance for outlier detection
+    maha_thresh = chi2.ppf(0.95, int(h_sym.shape[0])) # mahalanobis distance for outlier detection
     maha_test = kind in maha_test_kinds
     extra_post += """
       void update_%d(double *in_x, double *in_P, double *in_z, double *in_R, double *in_ea) {
@@ -469,7 +471,7 @@ class EKF_sym(object):
     if self.msckf and kind in self.maha_test_kinds:
       a = np.linalg.inv(H.dot(P).dot(H.T) + R)
       maha_dist = y.T.dot(a.dot(y))
-      if maha_dist > chi2_ppf(0.95, y.shape[0]):
+      if maha_dist > chi2.ppf(0.95, y.shape[0]):
         R = 10e16*R
 
     # *** same below this line ***
@@ -511,7 +513,7 @@ class EKF_sym(object):
 
     a = np.linalg.inv(H.dot(P).dot(H.T) + R)
     maha_dist = y.T.dot(a.dot(y))
-    if maha_dist > chi2_ppf(maha_thresh, y.shape[0]):
+    if maha_dist > chi2.ppf(maha_thresh, y.shape[0]):
       return False
     else:
       return True

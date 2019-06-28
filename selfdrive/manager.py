@@ -5,10 +5,12 @@ import fcntl
 import errno
 import signal
 import subprocess
+import selfdrive.messaging as messaging
 
 from common.basedir import BASEDIR
 sys.path.append(os.path.join(BASEDIR, "pyextra"))
 os.environ['BASEDIR'] = BASEDIR
+manager_sock = None
 
 def unblock_stdout():
   # get a non-blocking stdout
@@ -93,6 +95,7 @@ managed_processes = {
   "plannerd": "selfdrive.controls.plannerd",
   "radard": "selfdrive.controls.radard",
   "ubloxd": ("selfdrive/locationd", ["./ubloxd"]),
+  "mapd": "selfdrive.mapd.mapd",
   "loggerd": ("selfdrive/loggerd", ["./loggerd"]),
   "logmessaged": "selfdrive.logmessaged",
   "tombstoned": "selfdrive.tombstoned",
@@ -100,7 +103,7 @@ managed_processes = {
   "proclogd": ("selfdrive/proclogd", ["./proclogd"]),
   "boardd": ("selfdrive/boardd", ["./boardd"]),   # not used directly
   "pandad": "selfdrive.pandad",
-  "ui": ("selfdrive/ui", ["./start.py"]),
+  "ui": ("selfdrive/ui", ["./start.sh"]),
   "calibrationd": "selfdrive.locationd.calibrationd",
   "locationd": "selfdrive.locationd.locationd_local",
   "visiond": ("selfdrive/visiond", ["./visiond"]),
@@ -108,6 +111,19 @@ managed_processes = {
   "gpsd": ("selfdrive/sensord", ["./gpsd"]),
   "updated": "selfdrive.updated",
   "athena": "selfdrive.athena.athenad",
+}
+# define process name with niceness factor
+mean_processes = {
+  "controlsd": -15,
+  "boardd": -14,
+  "visiond": -13,
+  "plannerd": -12,
+  "loggerd": -11,
+  "radard": -10,
+  "pandad": -9,
+  "locationd": -8,
+  "mapd": -7,
+  "sensord": -6,
 }
 android_packages = ("ai.comma.plus.offroad", "ai.comma.plus.frame")
 
@@ -127,9 +143,11 @@ persistent_processes = [
   'logcatd',
   'tombstoned',
   'uploader',
+  'deleter',
   'ui',
+  'gpsd',
   'updated',
-  'athena',
+  'athena'
 ]
 
 car_started_processes = [
@@ -143,8 +161,7 @@ car_started_processes = [
   'visiond',
   'proclogd',
   'ubloxd',
-  'gpsd',
-  'deleter',
+  'mapd',
 ]
 
 def register_managed_process(name, desc, car_started=False):
@@ -184,6 +201,13 @@ def nativelauncher(pargs, cwd):
 
   os.execvp(pargs[0], pargs)
 
+def send_running_processes():
+  global manager_sock
+  data = messaging.new_message()
+  data.init('managerData')
+  data.managerData.runningProcesses = running.keys()
+  manager_sock.send(data.to_bytes())
+
 def start_managed_process(name):
   if name in running or name not in managed_processes:
     return
@@ -197,6 +221,13 @@ def start_managed_process(name):
     cloudlog.info("starting process %s" % name)
     running[name] = Process(name=name, target=nativelauncher, args=(pargs, cwd))
   running[name].start()
+
+  if name in mean_processes:
+    try:
+      subprocess.call(["renice", "-n", str(mean_processes[name]), str(running[name].pid)])
+    except:
+      cloudlog.warning("failed to renice process %s" % name)
+
 
 def prepare_managed_process(p):
   proc = managed_processes[p]
@@ -256,6 +287,8 @@ def cleanup_all_processes(signal, frame):
 
   for name in list(running.keys()):
     kill_managed_process(name)
+
+  send_running_processes()
   cloudlog.info("everything is dead")
 
 
@@ -307,8 +340,11 @@ def system(cmd):
 
 def manager_thread():
   # now loop
+  global manager_sock
   context = zmq.Context()
   thermal_sock = messaging.sub_sock(context, service_list['thermal'].port)
+  gps_sock = messaging.sub_sock(context, service_list['gpsLocation'].port, conflate=True)
+  manager_sock = messaging.pub_sock(context, service_list['managerData'].port)
 
   cloudlog.info("manager start")
   cloudlog.info({"environ": os.environ})
@@ -316,7 +352,6 @@ def manager_thread():
   # save boot log
   subprocess.call(["./loggerd", "--bootlog"], cwd=os.path.join(BASEDIR, "selfdrive/loggerd"))
 
-  # start persistent processes
   for p in persistent_processes:
     start_managed_process(p)
 
@@ -329,18 +364,22 @@ def manager_thread():
 
   params = Params()
   logger_dead = False
-
   while 1:
     # get health of board, log this in "thermal"
     msg = messaging.recv_sock(thermal_sock, wait=True)
-
+    gps = messaging.recv_one_or_none(gps_sock)
+    if gps:
+      if 47.3024876979 < gps.gpsLocation.latitude < 54.983104153 and 5.98865807458 < gps.gpsLocation.longitude < 15.0169958839:
+        logger_dead = True
+      else:
+        logger_dead = False
     # uploader is gated based on the phone temperature
     if msg.thermal.thermalStatus >= ThermalStatus.yellow:
       kill_managed_process("uploader")
     else:
       start_managed_process("uploader")
 
-    if msg.thermal.freeSpace < 0.05:
+    if msg.thermal.freeSpace < 0.18:
       logger_dead = True
 
     if msg.thermal.started:
@@ -355,9 +394,10 @@ def manager_thread():
         kill_managed_process(p)
 
     # check the status of all processes, did any of them die?
-    running_list = ["   running %s %s" % (p, running[p]) for p in running]
-    cloudlog.debug('\n'.join(running_list))
+    for p in running:
+      cloudlog.debug("   running %s %s" % (p, running[p]))
 
+    send_running_processes()
     # is this still needed?
     if params.get("DoUninstall") == "1":
       break

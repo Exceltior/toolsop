@@ -7,9 +7,14 @@ from selfdrive.controls.lib.vehicle_model import VehicleModel
 from selfdrive.car.chrysler.carstate import CarState, get_can_parser, get_camera_parser
 from selfdrive.car.chrysler.values import ECU, check_ecu_msgs, CAR
 
+try:
+  from selfdrive.car.chrysler.carcontroller import CarController
+except ImportError:
+  CarController = None
+
 
 class CarInterface(object):
-  def __init__(self, CP, CarController):
+  def __init__(self, CP, sendcan=None):
     self.CP = CP
     self.VM = VehicleModel(CP)
 
@@ -25,8 +30,9 @@ class CarInterface(object):
     self.cp = get_can_parser(CP)
     self.cp_cam = get_camera_parser(CP)
 
-    self.CC = None
-    if CarController is not None:
+    # sending if read only is False
+    if sendcan is not None:
+      self.sendcan = sendcan
       self.CC = CarController(self.cp.dbc_name, CP.carFingerprint, CP.enableCamera)
 
   @staticmethod
@@ -38,7 +44,7 @@ class CarInterface(object):
     return 1.0
 
   @staticmethod
-  def get_params(candidate, fingerprint, vin=""):
+  def get_params(candidate, fingerprint):
 
     # kg of standard extra cargo to count for drive, gas, etc...
     std_cargo = 136
@@ -47,7 +53,6 @@ class CarInterface(object):
 
     ret.carName = "chrysler"
     ret.carFingerprint = candidate
-    ret.carVin = vin
 
     ret.safetyModel = car.CarParams.SafetyModels.chrysler
 
@@ -66,7 +71,7 @@ class CarInterface(object):
 
     # Speed conversion:              20, 45 mph
     ret.wheelbase = 3.089  # in meters for Pacifica Hybrid 2017
-    ret.steerRatio = 16.2 # Pacifica Hybrid 2017
+    ret.steerRatio = 12.0 # 0.5.10
     ret.mass = 2858 + std_cargo  # kg curb weight Pacifica Hybrid 2017
     ret.lateralTuning.pid.kpBP, ret.lateralTuning.pid.kiBP = [[9., 20.], [9., 20.]]
     ret.lateralTuning.pid.kpV, ret.lateralTuning.pid.kiV = [[0.15,0.30], [0.03,0.05]]
@@ -74,9 +79,9 @@ class CarInterface(object):
     ret.steerActuatorDelay = 0.1
     ret.steerRateCost = 0.7
 
-    if candidate in (CAR.JEEP_CHEROKEE, CAR.JEEP_CHEROKEE_2019):
+    if candidate in (CAR.JEEP_CHEROKEE_2017, CAR.JEEP_CHEROKEE_2018, CAR.JEEP_CHEROKEE_2019):
       ret.wheelbase = 2.91  # in meters
-      ret.steerRatio = 12.7
+      ret.steerRatio = 11.6 # 0.5.10
       ret.steerActuatorDelay = 0.2  # in seconds
 
     ret.centerToFront = ret.wheelbase * 0.44
@@ -135,10 +140,8 @@ class CarInterface(object):
   def update(self, c):
     # ******************* do can recv *******************
     canMonoTimes = []
-    can_valid, _ = self.cp.update(int(sec_since_boot() * 1e9), True)
-    cam_valid, _ = self.cp_cam.update(int(sec_since_boot() * 1e9), False)
-    can_rcv_error = not can_valid or not cam_valid
-
+    self.cp.update(int(sec_since_boot() * 1e9), False)
+    self.cp_cam.update(int(sec_since_boot() * 1e9), False)
     self.CS.update(self.cp, self.cp_cam)
 
     # create message
@@ -182,6 +185,13 @@ class CarInterface(object):
     # ignore standstill in hybrid rav4, since pcm allows to restart without
     # receiving any special command
     ret.cruiseState.standstill = False
+    
+    ret.readdistancelines = 1
+    ret.genericToggle = False
+    ret.laneDepartureToggle = False
+    ret.distanceToggle = 1
+    ret.accSlowToggle = False
+    ret.blindspot = False
 
     # TODO: button presses
     buttonEvents = []
@@ -210,21 +220,25 @@ class CarInterface(object):
     #ret.lkasCounter = self.CS.lkas_counter
     #ret.lkasCarModel = self.CS.lkas_car_model
 
+    if ret.cruiseState.enabled and not self.cruise_enabled_prev:
+      disengage_event = True
+    else:
+      disengage_event = False
+    
+    ret.gasbuttonstatus = self.CS.gasMode
     # events
     events = []
     if not self.CS.can_valid:
       self.can_invalid_count += 1
+      if self.can_invalid_count >= 5:
+        events.append(create_event('commIssue', [ET.NO_ENTRY, ET.IMMEDIATE_DISABLE]))
     else:
       self.can_invalid_count = 0
-
-    if can_rcv_error or self.can_invalid_count >= 5:
-      events.append(create_event('commIssue', [ET.NO_ENTRY, ET.IMMEDIATE_DISABLE]))
-
     if not (ret.gearShifter in ('drive', 'low')):
       events.append(create_event('wrongGear', [ET.NO_ENTRY, ET.SOFT_DISABLE]))
-    if ret.doorOpen:
+    if ret.doorOpen and disengage_event:
       events.append(create_event('doorOpen', [ET.NO_ENTRY, ET.SOFT_DISABLE]))
-    if ret.seatbeltUnlatched:
+    if ret.seatbeltUnlatched and disengage_event:
       events.append(create_event('seatbeltNotLatched', [ET.NO_ENTRY, ET.SOFT_DISABLE]))
     if self.CS.esp_disabled:
       events.append(create_event('espDisabled', [ET.NO_ENTRY, ET.SOFT_DISABLE]))
@@ -242,8 +256,9 @@ class CarInterface(object):
 
     # disable on gas pedal and speed isn't zero. Gas pedal is used to resume ACC
     # from a 3+ second stop.
-    if (ret.gasPressed and (not self.gas_pressed_prev) and ret.vEgo > 2.0):
-      events.append(create_event('pedalPressed', [ET.NO_ENTRY, ET.USER_DISABLE]))
+    if self.CS.cstm_btns.get_button_status("mad") == 0:
+      if (ret.gasPressed and (not self.gas_pressed_prev) and ret.vEgo > 2.0):
+        events.append(create_event('pedalPressed', [ET.NO_ENTRY, ET.USER_DISABLE]))
 
     if self.low_speed_alert:
       events.append(create_event('belowSteerSpeed', [ET.WARNING]))
@@ -262,11 +277,11 @@ class CarInterface(object):
   def apply(self, c):
 
     if (self.CS.frame == -1):
-      return [] # if we haven't seen a frame 220, then do not update.
+      return False # if we haven't seen a frame 220, then do not update.
 
     self.frame = self.CS.frame
-    can_sends = self.CC.update(c.enabled, self.CS, self.frame,
-                               c.actuators, c.cruiseControl.cancel, c.hudControl.visualAlert,
-                               c.hudControl.audibleAlert)
+    self.CC.update(self.sendcan, c.enabled, self.CS, self.frame,
+                   c.actuators, c.cruiseControl.cancel, c.hudControl.visualAlert,
+                   c.hudControl.audibleAlert)
 
-    return can_sends
+    return False

@@ -7,9 +7,14 @@ from selfdrive.controls.lib.vehicle_model import VehicleModel
 from selfdrive.car.hyundai.carstate import CarState, get_can_parser, get_camera_parser
 from selfdrive.car.hyundai.values import CAMERA_MSGS, CAR, get_hud_alerts, FEATURES
 
+try:
+  from selfdrive.car.hyundai.carcontroller import CarController
+except ImportError:
+  CarController = None
+
 
 class CarInterface(object):
-  def __init__(self, CP, CarController):
+  def __init__(self, CP, sendcan=None):
     self.CP = CP
     self.VM = VehicleModel(CP)
     self.idx = 0
@@ -27,9 +32,10 @@ class CarInterface(object):
     self.cp = get_can_parser(CP)
     self.cp_cam = get_camera_parser(CP)
 
-    self.CC = None
-    if CarController is not None:
-      self.CC = CarController(self.cp.dbc_name, CP.carFingerprint)
+    # sending if read only is False
+    if sendcan is not None:
+      self.sendcan = sendcan
+      self.CC = CarController(self.cp.dbc_name, CP.carFingerprint, CP.enableCamera)
 
   @staticmethod
   def compute_gb(accel, speed):
@@ -40,7 +46,7 @@ class CarInterface(object):
     return 1.0
 
   @staticmethod
-  def get_params(candidate, fingerprint, vin=""):
+  def get_params(candidate, fingerprint):
 
     # kg of standard extra cargo to count for drive, gas, etc...
     std_cargo = 136
@@ -49,7 +55,6 @@ class CarInterface(object):
 
     ret.carName = "hyundai"
     ret.carFingerprint = candidate
-    ret.carVin = vin
     ret.radarOffCan = True
     ret.safetyModel = car.CarParams.SafetyModels.hyundai
     ret.enableCruise = True  # stock acc
@@ -174,10 +179,8 @@ class CarInterface(object):
   def update(self, c):
     # ******************* do can recv *******************
     canMonoTimes = []
-    can_rcv_error = not self.cp.update(int(sec_since_boot() * 1e9), True)
-    cam_rcv_error = not self.cp_cam.update(int(sec_since_boot() * 1e9), False)
-    can_rcv_error = can_rcv_error or cam_rcv_error
-
+    self.cp.update(int(sec_since_boot() * 1e9), False)
+    self.cp_cam.update(int(sec_since_boot() * 1e9), False)
     self.CS.update(self.cp, self.cp_cam)
     # create message
     ret = car.CarState.new_message()
@@ -199,7 +202,9 @@ class CarInterface(object):
       ret.gearShifter = self.CS.gear_tcu
     else:
       ret.gearShifter = self.CS.gear_shifter
-
+    
+    ret.gasbuttonstatus = self.CS.cstm_btns.get_button_status("gas")
+    ret.readdistancelines = self.CS.read_distance_lines
     # gas pedal
     ret.gas = self.CS.car_gas
     ret.gasPressed = self.CS.pedal_gas > 1e-3   # tolerance to avoid false press reading
@@ -254,21 +259,24 @@ class CarInterface(object):
     if ret.vEgo > (self.CP.minSteerSpeed + 4.):
       self.low_speed_alert = False
 
+    if ret.cruiseState.enabled and not self.cruise_enabled_prev:
+      disengage_event = True
+    else:
+      disengage_event = False
+
     # events
     events = []
     if not self.CS.can_valid:
       self.can_invalid_count += 1
+      if self.can_invalid_count >= 5:
+        events.append(create_event('commIssue', [ET.NO_ENTRY, ET.IMMEDIATE_DISABLE]))
     else:
       self.can_invalid_count = 0
-
-    if can_rcv_error or self.can_invalid_count >= 5:
-      events.append(create_event('commIssue', [ET.NO_ENTRY, ET.IMMEDIATE_DISABLE]))
-
     if not ret.gearShifter == 'drive':
       events.append(create_event('wrongGear', [ET.NO_ENTRY, ET.SOFT_DISABLE]))
-    if ret.doorOpen:
+    if ret.doorOpen and disengage_event:
       events.append(create_event('doorOpen', [ET.NO_ENTRY, ET.SOFT_DISABLE]))
-    if ret.seatbeltUnlatched:
+    if ret.seatbeltUnlatched and disengage_event:
       events.append(create_event('seatbeltNotLatched', [ET.NO_ENTRY, ET.SOFT_DISABLE]))
     if self.CS.esp_disabled:
       events.append(create_event('espDisabled', [ET.NO_ENTRY, ET.SOFT_DISABLE]))
@@ -309,7 +317,7 @@ class CarInterface(object):
 
     hud_alert = get_hud_alerts(c.hudControl.visualAlert, c.hudControl.audibleAlert)
 
-    can_sends = self.CC.update(c.enabled, self.CS, c.actuators,
-                               c.cruiseControl.cancel, hud_alert)
+    self.CC.update(self.sendcan, c.enabled, self.CS, c.actuators,
+                   c.cruiseControl.cancel, hud_alert)
 
-    return can_sends
+    return False

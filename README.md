@@ -1,14 +1,26 @@
 [![](https://i.imgur.com/xY2gdHv.png)](#)
 
-Welcome to openpilot
+Welcome to openpilot by Arne Schwarck
+https://youtu.be/WKwSq8TPdpo
 ======
-Tools added by littlemountainman
-[openpilot](http://github.com/commaai/openpilot) is an open source driving agent. Currently, it performs the functions of Adaptive Cruise Control (ACC) and Lane Keeping Assist System (LKAS) for selected Honda, Toyota, Acura, Lexus, Chevrolet, Hyundai, Kia. It's about on par with Tesla Autopilot and GM Super Cruise, and better than [all other manufacturers](http://www.thedrive.com/tech/5707/the-war-for-autonomous-driving-part-iii-us-vs-germany-vs-japan).
 
-The openpilot codebase has been written to be concise and to enable rapid prototyping. We look forward to your contributions - improving real vehicle automation has never been easier.
+[openpilot](http://github.com/commaai/openpilot) is an open source driving agent. Currently, it performs the functions of Adaptive Cruise Control (ACC) and Lane Keeping Assist System (LKAS) for selected Honda, Toyota, Acura, Lexus, Chevrolet, Hyundai, Kia. It's about on par with Tesla Autopilot and GM Super Cruise, and better than all other manufacturers.
 
-Table of Contents
+Highlight Features
 =======================
+
+
+* **Automatic Lane Change Assist (ALC)**: Check your surroundings, signal in the direction you would like to change lanes, and let openpilot do the rest. You can choose between three ALC profiles, Wifey, Normal, and Mad Max. Each increasing in steering torque.
+* **Stock Lane Keeping Assist (LKA)**: Arne has worked on recreating the lane keeping assist system present in your car for openpilot. It works with cruise control not engaged, attempting to steer to keep you inside your lane when it detects you are departing it.
+* **[Dynamic Following Distance Profile](https://github.com/ShaneSmiskol/openpilot/blob/dynamic-follow/README.md)** (outdated: on 0.5.8, `dynamic-follow` branch only): Three following distance (TR) profiles are available to select; 0.9 seconds, 2.7 seconds, and a custom tuned dynamic follow profile. The first two behave as your stock cruise control system does. Dynamic follow aims to provide a more natural feeling drive, adjusting your distance from the lead car based on your speed, your relative velocity with the lead car, and your acceleration (or deceleration). If the system detects the lead car decelerating, your car should start to brake sooner than a hard-coded TR value. Same with accelerating.
+* **Slow Mode (SLO)**: For cars with longitudinal control down to 0 mph, you have the option to activate SLO mode which enables you to set your car's cruise control under your car's limit. For example, you could coast along at 15, 10, or even 5 mph.
+* **Acceleration Profiles (GAS)**: You can select from three acceleration profiles with the GAS button. If your car accelerates too slowly for your liking, this will solve that. **Recently added**: dynamic acceleration profile for users with comma pedals. This should provide a smoother acceleration experience in stop and go traffic.
+* **Select Vision Model (on 0.5.8, `dynamic-follow` branch only)**: You can select whether you would like to use the wiggly model or the normal vision model for path planning. Wiggly has more torque and can better guess the road curvature without lane lines, but it occasionally crashes or mispredicts the path.
+* **EON and openpilot Stats**: With the on-screen UI, you can view stats about your EON such as its temperature, your grey panda's GPS accuracy, the lead car's relative velocity, its distance, and more.
+
+Warning from kegman: `WARNING: Do NOT depend on OP to stop the car in time if you are approaching an object which is not in motion in the same direction as your car. The radar will NOT detect the stationary object in time to slow your car enough to stop. If you are approaching a stopped vehicle you must disengage and brake as radars ignore objects that are not in motion.`
+
+---
 
 * [Community](#community)
 * [Hardware](#hardware)
@@ -92,11 +104,11 @@ Supported Cars
 | Kia                  | Sorento 2018             | All                  | Yes     | Stock          | 0mph             | 0mph           | Custom<sup>6</sup>|
 | Kia                  | Stinger 2018             | SCC + LKAS           | Yes     | Stock          | 0mph             | 0mph           | Custom<sup>6</sup>|
 | Lexus                | RX Hybrid 2016-19        | All                  | Yes     | Yes<sup>2</sup>| 0mph             | 0mph           | Toyota            |
-| Subaru               | Crosstrek 2018           | EyeSight             | Yes     | Stock          | 0mph             | 0mph           | Custom<sup>4</sup>|
-| Subaru               | Impreza 2019             | EyeSight             | Yes     | Stock          | 0mph             | 0mph           | Custom<sup>4</sup>|
+| Subaru               | Crosstrek 2018           | EyeSight             | Yes     | Stock          | 0mph             | 0mph           | Subaru            |
+| Subaru               | Impreza 2019             | EyeSight             | Yes     | Stock          | 0mph             | 0mph           | Subaru            |
 | Toyota               | Avalon 2016              | TSS-P                | Yes     | Yes<sup>2</sup>| 20mph<sup>1</sup>| 0mph           | Toyota            |
-| Toyota               | Camry 2018               | All                  | Yes     | Stock          | 0mph<sup>5</sup> | 0mph           | Toyota            |
-| Toyota               | C-HR 2017-18             | All                  | Yes     | Stock          | 0mph             | 0mph           | Toyota            |
+| Toyota               | Camry 2018<sup>4</sup>   | All                  | Yes     | Stock          | 0mph<sup>5</sup> | 0mph           | Toyota            |
+| Toyota               | C-HR 2017-18<sup>4</sup> | All                  | Yes     | Stock          | 0mph             | 0mph           | Toyota            |
 | Toyota               | Corolla 2017-18          | All                  | Yes     | Yes<sup>2</sup>| 20mph<sup>1</sup>| 0mph           | Toyota            |
 | Toyota               | Corolla Hatchback 2019   | All                  | Yes     | Yes            | 0mph             | 0mph           | Toyota            |
 | Toyota               | Highlander 2017-18       | All                  | Yes     | Yes<sup>2</sup>| 0mph             | 0mph           | Toyota            |
@@ -109,13 +121,13 @@ Supported Cars
 | Toyota               | Rav4 2019                | All                  | Yes     | Yes            | 0mph             | 0mph           | Toyota            |
 | Toyota               | Rav4 Hybrid 2017-18      | All                  | Yes     | Yes<sup>2</sup>| 0mph             | 0mph           | Toyota            |
 
-<sup>1</sup>[Comma Pedal](https://community.comma.ai/wiki/index.php/Comma_Pedal) is used to provide stop-and-go capability to some of the openpilot-supported cars that don't currently support stop-and-go. Here is how to [build a Comma Pedal](https://medium.com/@jfrux/comma-pedal-building-with-macrofab-6328bea791e8). ***NOTE: The Comma Pedal is not officially supported by [comma.ai](https://comma.ai).*** <br />
-<sup>2</sup>When disconnecting the Driver Support Unit (DSU), otherwise longitudinal control is stock ACC. For DSU locations, see [Toyota Wiki page](https://community.comma.ai/wiki/index.php/Toyota). <br />
-<sup>3</sup>[GM installation guide](https://zoneos.com/volt/). <br />
-<sup>4</sup>Subaru Giraffe is DIY. <br />
-<sup>5</sup>28mph for Camry 4CYL L, 4CYL LE and 4CYL SE which don't have Full-Speed Range Dynamic Radar Cruise Control. <br />
-<sup>6</sup>Open sourced [Hyundai Giraffe](https://github.com/commaai/neo/tree/master/giraffe/hyundai) is designed for the 2019 Sante Fe; pinout may differ for other Hyundais. <br />
-<sup>7</sup>Community built Giraffe, find more information [here](https://zoneos.com/shop/). <br />
+<sup>1</sup>[Comma Pedal](https://community.comma.ai/wiki/index.php/Comma_Pedal) is used to provide stop-and-go capability to some of the openpilot-supported cars that don't currently support stop-and-go. Here is how to [build a Comma Pedal](https://medium.com/@jfrux/comma-pedal-building-with-macrofab-6328bea791e8). ***NOTE: The Comma Pedal is not officially supported by [comma.ai](https://comma.ai)***  
+<sup>2</sup>When disconnecting the Driver Support Unit (DSU), otherwise longitudinal control is stock ACC. For DSU locations, see [Toyota Wiki page](https://community.comma.ai/wiki/index.php/Toyota)  
+<sup>3</sup>[GM installation guide](https://zoneos.com/volt/).  
+<sup>4</sup>It needs an extra 120Ohm resistor ([pic1](https://i.imgur.com/CmdKtTP.jpg), [pic2](https://i.imgur.com/s2etUo6.jpg)) on bus 3 and giraffe switches set to 01X1 (11X1 for stock LKAS), where X depends on if you have the [comma power](https://comma.ai/shop/products/power/).  
+<sup>5</sup>28mph for Camry 4CYL L, 4CYL LE and 4CYL SE which don't have Full-Speed Range Dynamic Radar Cruise Control.  
+<sup>6</sup>Open sourced [Hyundai Giraffe](https://github.com/commaai/neo/tree/master/giraffe/hyundai) is designed for the 2019 Sante Fe; pinout may differ for other Hyundais.  
+<sup>7</sup>Community built Giraffe, find more information [here](https://zoneos.com/shop/).  
 
 Community Maintained Cars
 ------
@@ -173,6 +185,7 @@ Directory structure
         ├── locationd       # Soon to be home of precise location
         ├── logcatd         # Android logcat as a service
         ├── loggerd         # Logger and uploader of car data
+        ├── mapd            # Fetches map data and computes next global path
         ├── proclogd        # Logs information from proc
         ├── sensord         # IMU / GPS interface code
         ├── test            # Car simulator running code through virtual maneuvers
@@ -203,9 +216,7 @@ Also, within openpilot there is a rudimentary infrastructure to run a basic simu
 
 ```bash
 # Requires working docker
-./init
-cd replay
-python unlogger.py
+./run_docker_tests.sh
 ```
 
 Contributing
@@ -231,3 +242,4 @@ NO WARRANTY EXPRESSED OR IMPLIED.**
 ---
 
 <img src="https://d1qb2nb5cznatu.cloudfront.net/startups/i/1061157-bc7e9bf3b246ece7322e6ffe653f6af8-medium_jpg.jpg?buster=1458363130" width="75"></img> <img src="https://cdn-images-1.medium.com/max/1600/1*C87EjxGeMPrkTuVRVWVg4w.png" width="225"></img>
+

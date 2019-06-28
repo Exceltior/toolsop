@@ -14,7 +14,7 @@ gpsNMEA: [8004, true]
 thermal: [8005, true]
 # List(CanData), list of can messages
 can: [8006, true]
-controlsState: [8007, true]
+live100: [8007, true]
 
 # random events we want to log
 
@@ -22,7 +22,7 @@ controlsState: [8007, true]
 model: [8009, true]
 features: [8010, true]
 health: [8011, true]
-radarState: [8012, true]
+live20: [8012, true]
 #liveUI: [8014, true]
 encodeIdx: [8015, true]
 liveTracks: [8016, true]
@@ -72,13 +72,26 @@ orbFeaturesSummary: [8062, true]
 driverMonitoring: [8063, true]
 liveParameters: [8064, true]
 liveMapData: [8065, true]
+liveTrafficData: [8079, false]
+latControl: [8078, false]
 cameraOdometry: [8066, true]
 pathPlan: [8067, true]
 kalmanOdometry: [8068, true]
+phantomData: [8069, false]
+managerData: [8070, false]
 
 testModel: [8040, false]
 testLiveLocation: [8045, false]
 testJoystick: [8056, false]
+
+#ui Events
+uiButtonInfo: [8201, false]
+uiCustomAlert: [8202, false]
+uiSetCar: [8203, false]
+uiButtonStatus: [8204, false]
+uiPlaySound: [8205, false]
+uiUpdate: [8206, false]
+
 
 # 8080 is reserved for slave testing daemon
 # 8762 is reserved for logserver
@@ -97,23 +110,23 @@ testJoystick: [8056, false]
 #   publishes:  sensorEvents, gpsNMEA
 
 # visiond -- talks to the cameras, runs the model, saves the videos
-#   subscribes: liveCalibration, sensorEvents, controlsState
+#   subscribes: liveCalibration, sensorEvents, live100
 #   publishes:  frame, encodeIdx, model, liveCalibration
 
 # **** stateful data transformers ****
 
 # plannerd -- decides where to drive the car
-#   subscribes: carState, model, radarState
+#   subscribes: carState, model, live20
 #   publishes:  plan
 
 # controlsd -- actually drives the car
 #   subscribes: can, thermal, plan
-#   publishes:  carState, carControl, sendcan, controlsState
+#   publishes:  carState, carControl, sendcan, live100
 
-# radard -- processes the radar and vision data
+# radard -- processes the radar data
 #   blocks:     CarParams
-#   subscribes: can, controlsState, model
-#   publishes:  radarState, liveTracks
+#   subscribes: can, live100, model
+#   publishes:  live20, liveTracks
 
 # **** LOGGING SERVICE ****
 
@@ -123,7 +136,7 @@ testJoystick: [8056, false]
 # **** NON VITAL SERVICES ****
 
 # ui
-#   subscribes: controlsState, radarState, liveCalibration, model, (raw frames)
+#   subscribes: live100, live20, liveCalibration, model, (raw frames)
 
 # uploader
 #   communicates through file system with loggerd

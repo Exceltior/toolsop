@@ -59,19 +59,16 @@ def create_gas_regen_command(packer, bus, throttle, idx, acc_engaged, at_full_st
   return packer.make_can_msg("ASCMGasRegenCmd", bus, values)
 
 def create_friction_brake_command(packer, bus, apply_brake, idx, near_stop, at_full_stop):
-
-  if apply_brake == 0:
-    mode = 0x1
-  else:
+  mode = 0x1
+  if apply_brake > 0:
     mode = 0xa
 
-    if at_full_stop:
-      mode = 0xd
-    # TODO: this is to have GM bringing the car to complete stop,
-    # but currently it conflicts with OP controls, so turned off.
-    #elif near_stop:
-    #  mode = 0xb
+  if near_stop:
+    mode = 0xb
 
+  if at_full_stop:
+    mode = 0xd
+    
   brake = (0x1000 - apply_brake) & 0xfff
   checksum = (0x10000 - (mode << 12) - brake - idx) & 0xffff
 
@@ -84,7 +81,7 @@ def create_friction_brake_command(packer, bus, apply_brake, idx, near_stop, at_f
 
   return packer.make_can_msg("EBCMFrictionBrakeCmd", bus, values)
 
-def create_acc_dashboard_command(packer, bus, acc_engaged, target_speed_kph, lead_car_in_sight):
+def create_acc_dashboard_command(packer, bus, acc_engaged, target_speed_kph, lead_car_in_sight, follow_level):
   # Not a bit shift, dash can round up based on low 4 bits.
   target_speed = int(target_speed_kph * 16) & 0xfff
 
@@ -92,7 +89,7 @@ def create_acc_dashboard_command(packer, bus, acc_engaged, target_speed_kph, lea
     "ACCAlwaysOne" : 1,
     "ACCResumeButton" : 0,
     "ACCSpeedSetpoint" : target_speed,
-    "ACCGapLevel" : 3 * acc_engaged, # 3 "far", 0 "inactive"
+    "ACCGapLevel" : follow_level,
     "ACCCmdActive" : acc_engaged,
     "ACCAlwaysOne2" : 1,
     "ACCLeadCar" : lead_car_in_sight
@@ -134,13 +131,8 @@ def create_chime_command(bus, chime_type, duration, repeat_cnt):
   dat = [chime_type, duration, repeat_cnt, 0xff, 0]
   return [0x10400060, 0, "".join(map(chr, dat)), bus]
 
-def create_lka_icon_command(bus, active, critical, steer):
-  if active and steer == 1:
-    if critical:
-      dat = "\x50\xc0\x14"
-    else:
-      dat = "\x50\x40\x18"
-  elif active:
+def create_lka_icon_command(bus, active, critical):
+  if active:
     if critical:
       dat = "\x40\xc0\x14"
     else:

@@ -1,4 +1,5 @@
 from selfdrive.car import apply_std_steer_torque_limits
+from selfdrive.boardd.boardd import can_list_to_can_capnp
 from selfdrive.car.hyundai.hyundaican import create_lkas11, create_lkas12, \
                                              create_1191, create_1156, \
                                              create_clu11
@@ -17,19 +18,23 @@ class SteerLimitParams:
   STEER_DRIVER_FACTOR = 1
 
 class CarController(object):
-  def __init__(self, dbc_name, car_fingerprint):
+  def __init__(self, dbc_name, car_fingerprint, enable_camera):
     self.apply_steer_last = 0
     self.car_fingerprint = car_fingerprint
     self.lkas11_cnt = 0
     self.cnt = 0
     self.last_resume_cnt = 0
+    self.enable_camera = enable_camera
     # True when giraffe switch 2 is low and we need to replace all the camera messages
     # otherwise we forward the camera msgs and we just replace the lkas cmd signals
     self.camera_disconnected = False
 
     self.packer = CANPacker(dbc_name)
 
-  def update(self, enabled, CS, actuators, pcm_cancel_cmd, hud_alert):
+  def update(self, sendcan, enabled, CS, actuators, pcm_cancel_cmd, hud_alert):
+
+    if not self.enable_camera:
+      return
 
     ### Steering Torque
     apply_steer = actuators.steer * SteerLimitParams.STEER_MAX
@@ -65,6 +70,7 @@ class CarController(object):
       self.last_resume_cnt = self.cnt
       can_sends.append(create_clu11(self.packer, CS.clu11, Buttons.RES_ACCEL))
 
-    self.cnt += 1
+    ### Send messages to canbus
+    sendcan.send(can_list_to_can_capnp(can_sends, msgtype='sendcan'))
 
-    return can_sends
+    self.cnt += 1

@@ -2,9 +2,7 @@
 uint32_t *prog_ptr = NULL;
 int unlocked = 0;
 
-#ifdef uart_ring
 void debug_ring_callback(uart_ring *ring) {}
-#endif
 
 int usb_cb_control_msg(USB_Setup_TypeDef *setup, uint8_t *resp, int hardwired) {
   int resp_len = 0;
@@ -48,7 +46,7 @@ int usb_cb_control_msg(USB_Setup_TypeDef *setup, uint8_t *resp, int hardwired) {
       break;
     // **** 0xd0: fetch serial number
     case 0xd0:
-      #ifdef STM32F4
+      #ifdef PANDA
         // addresses are OTP
         if (setup->b.wValue.w == 1) {
           memcpy(resp, (void *)0x1fff79c0, 0x10);
@@ -134,7 +132,6 @@ int spi_cb_rx(uint8_t *data, int len, uint8_t *data_out) {
 
 #ifdef PEDAL
 
-#include "drivers/llcan.h"
 #define CAN CAN1
 
 #define CAN_BL_INPUT 0x1
@@ -242,7 +239,7 @@ void CAN1_RX0_IRQHandler() {
 }
 
 void CAN1_SCE_IRQHandler() {
-  llcan_clear_send(CAN);
+  can_sce(CAN);
 }
 
 #endif
@@ -267,8 +264,8 @@ void soft_flasher_start() {
   set_can_enable(CAN1, 1);
 
   // init can
-  llcan_set_speed(CAN1, 5000, false, false);
-  llcan_init(CAN1);
+  can_silent = ALL_CAN_LIVE;
+  can_init(0);
 #endif
 
   // A4,A5,A6,A7: setup SPI
