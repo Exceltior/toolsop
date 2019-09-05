@@ -1,5 +1,16 @@
 [![](https://i.imgur.com/xY2gdHv.png)](#)
 
+Installing the tools
+========
+```sh
+cd ~/
+git clone https://github.com/littlemountainman/op-dev.git 
+cd op-dev
+sudo ./init.sh
+cd ~/op-dev
+```
+The tools are now installed. You can try them in openpilot_tools/. Read more about the tools in openpilot_tools/README.md.
+
 Welcome to openpilot
 ======
 Tools added by littlemountainman
