@@ -2,13 +2,15 @@
 import struct
 import zmq
 import time
-from common.numpy_fast import clip
 from copy import copy
 from selfdrive.services import service_list
 from cereal import car
 import selfdrive.messaging as messaging
 from selfdrive.car.car_helpers import get_car
 from selfdrive.boardd.boardd import can_list_to_can_capnp
+
+def clip(x, lo, hi):
+  return max(lo, min(hi, x))
 
 
 def steer_thread():
