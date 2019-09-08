@@ -9,6 +9,14 @@ sudo ./setup.sh
 cd tools/ # tools are located here.
 ```
 Now, try out some tools. Have fun 
+
+Enable openpilot vision test tool
+=========
+- Go to selfdrive/thermald.py
+- jump to line 237 and change should_start to True
+- jump to line 333 and change msg.thermal.started to True.
+- Reboot and you see vision with the predicted lane lines. (EON will run hot)
+
 Welcome to openpilot
 ======
 
