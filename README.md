@@ -1,5 +1,14 @@
 [![](https://i.imgur.com/UetIFyH.jpg)](#)
 
+Install the tools
+==========
+```sh
+git clone https://github.com/littlemountainman/openpilot.git
+cd openpilot # keep this name. Else the paths won't work 
+sudo ./setup.sh 
+cd tools/ # tools are located here.
+```
+Now, try out some tools. Have fun 
 Welcome to openpilot
 ======
 
