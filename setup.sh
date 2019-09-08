@@ -63,7 +63,7 @@ echo "***********************************most distros have a shitty old version 
 sudo rm -rvf /usr/local/lib/python2.7/dist-packages/OpenSSL/
 
 cd ~/openpilot
-pip install --user cryptography pyOpenSSL pyopencl pytools simplejson pygame pyzmq pycapnp subprocess32 libarchive lru_dict hexdump 
+pip install --user cryptography pyOpenSSL pyopencl pytools simplejson pygame pyzmq pycapnp subprocess32 libarchive lru_dict hexdump lazy_property 
 
 unset PYTHONPATH
 export PYTHONPATH=~/openpilot/
