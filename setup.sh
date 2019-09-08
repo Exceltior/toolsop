@@ -1,6 +1,8 @@
 
 echo "***********************************Installing core tools***********************************"
 sudo apt install git curl python-pip autoconf
+sudo apt-get install -y python-dev pkg-config
+sudo apt-get install -y libavformat-dev libavcodec-dev libavdevice-dev libavutil-dev libswscale-dev libavresample-dev libavfilter-dev
 
 echo "***********************************Upgrading pip***********************************"
 sudo pip install --upgrade pip>=18.0
@@ -61,7 +63,7 @@ echo "***********************************most distros have a shitty old version 
 sudo rm -rvf /usr/local/lib/python2.7/dist-packages/OpenSSL/
 
 cd ~/openpilot
-pip install --user cryptography pyOpenSSL pyopencl pytools simplejson pygame pyzmq pycapnp subprocess32 libarchive lru_dict
+pip install --user cryptography pyOpenSSL pyopencl pytools simplejson pygame pyzmq pycapnp subprocess32 libarchive lru_dict hexdump 
 
 unset PYTHONPATH
 export PYTHONPATH=~/openpilot/
